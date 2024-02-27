@@ -1,0 +1,33 @@
+version: '3.9'
+
+services:
+  server:
+    build:
+      context: ./Server
+    image: serverimage
+    networks:
+      - my_network
+    restart: always
+
+  load_balancer:
+    build:
+      context: ./loadBalancer
+    image: loadbalancer
+    container_name: loadbalancerContainer
+    ports:
+      - "5000:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    privileged: true
+    networks:
+      - my_network
+    restart: always
+    mem_limit: 1g
+    environment:
+      - SERVER_IMAGE_NAME=serverimage
+
+networks:
+  my_network:
+    name: my_network
+    external: true
+    driver: bridge
