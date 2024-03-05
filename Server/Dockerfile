@@ -4,11 +4,11 @@ FROM ubuntu:20.04
 # # Avoiding user interaction with tzdata when installing packages
 # ENV DEBIAN_FRONTEND=noninteractive
 
-# Setting the working directory to '/dockerServer'
-WORKDIR /dockerServer
-
 # Copying current directory content to '/dockerServer'
 COPY . /dockerServer
+
+# Setting the working directory to '/dockerServer'
+WORKDIR /dockerServer
 
 # Installing python3, pip3, flask, and MySQL 8.0
 # Setting timezone which is required for docker installation
@@ -27,19 +27,29 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+RUN chmod +x deploy.sh
+
 # Setting environment variables
 ENV MYSQL_DATABASE=shardsDB
 ENV MYSQL_ROOT_PASSWORD=password
 ENV MYSQL_USER=root
+ENV MYSQL_PASSWORD=password
 
 # Exposing port 5000 for the flask app
 EXPOSE 5000
 
+
+# Debugging
+RUN ls -l
+RUN echo $PATH
 # # Exposing default MySQL port, optional if you plan to connect to MySQL from another container or host
 # EXPOSE 3306
 
+# # Running the MySQL server
+# ENTRYPOINT ["mysqld"]
+
 # Running the server
-ENTRYPOINT ["python3", "server.py"]
+ENTRYPOINT ["./deploy.sh"]
 
 
 # # Using Ubuntu 20.04 as base image

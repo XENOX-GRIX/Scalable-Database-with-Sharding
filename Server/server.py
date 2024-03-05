@@ -21,10 +21,7 @@ app.config['SECRET_KEY'] = 'my key'
 # Creating the SQLALchemy object
 db = SQLAlchemy(app)
 
-# ORM Model for the Employees table
-# "columns":["Stud_id","Stud_name","Stud_marks"],
-# "dtypes":["Number","String","String"]
-# table name will be dynamically provided
+# ORM Model for the Employees table. Table name will be dynamically provided
 def ClassFactory(name):
     # Check if the table already exists in metadata
     existing_table = db.Model.metadata.tables.get(name)
@@ -32,7 +29,7 @@ def ClassFactory(name):
         print("Table already exists")
         return type(name, (db.Model,), {'__tablename__': name, '__table__': existing_table})
 
-
+    # If the table does not exist, create the table
     tabledict={'Stud_id': db.Column(db.Integer, primary_key=True),
                'Stud_name': db.Column(db.String(100)),
                'Stud_marks': db.Column(db.String(100))}
@@ -83,7 +80,12 @@ def config():
 
     # checking if the schema and shards are present in the payload
     errorMessage = {}
+    successMessage = {}
+    successMessage["message"] = ""
     isError = False
+    # Server ID taking from the environment variable named SERVER_ID
+    serverID = os.environ.get('SERVER_ID')
+    serverName = "Server" + str(serverID)
 
     if schema is None or shards is None:
         isError = True
@@ -99,22 +101,20 @@ def config():
         else:
             # Creating the shards in the database
             for shard in shards:
+                # Check if the table already exists in metadata
+                existing_table = db.Model.metadata.tables.get(shard)
+                if existing_table is not None:
+                    successMessage["message"] += serverName + ":" + shard + "(existing), "
+                    continue
                 # Creating the table in the database
                 table = ClassFactory(shard)
                 db.create_all()
                 db.session.commit()
-                # Query to create the shard table
-
-            # Server ID taking from the environment variable named SERVER_ID
-            serverID = os.environ.get('SERVER_ID')
-
-            serverName = "Server" + str(serverID)
-
-            # Returning the success message
-            successMessage = {}
-            successMessage["message"] = ""
-            for shard in shards:
                 successMessage["message"] += serverName + ":" + shard + ", "
+
+            # Returning the success message along with the status code 200
+            # Remove the last comma from the message
+            successMessage["message"] = successMessage["message"][:-2]
             successMessage["message"] += "configured"
             successMessage["status"] = "success"
             return successMessage, 200
@@ -167,22 +167,6 @@ def showTables():
     return {"tables": tables, "status": "success"}, 200
 
 # # Server endpoint for requests at http://localhost:5000/copy, methond=GET
-# # Endpoint (/copy, method=GET): This endpoint returns all data entries corresponding to one shard table in the server
-# # container. Copy endpoint is further used to populate shard tables from replicas in case a particular server container fails,
-# # as shown in Fig. 1. An example request-response pair is shown below.
-# # Payload Json= {
-# # "shards":["sh1","sh2"]
-# # }
-# # Response Json ={
-# # "sh1" : [{"Stud_id":1232,"Stud_name":ABC,"Stud_marks":25},
-# # {"Stud_id":1234,"Stud_name":DEF,"Stud_marks":28},
-# # ....],
-# # "sh2" : [{"Stud_id":2255,"Stud_name":GHI,"Stud_marks":27},
-# # {"Stud_id":2535,"Stud_name":JKL,"Stud_marks":23},
-# # ....],
-# # "status" : "success"
-# # },
-# # Response Code = 200
 @app.route('/copy', methods = ['GET'])
 def copy():
     # Getting the list of shard tables from the payload
@@ -192,18 +176,15 @@ def copy():
     # Dictionary to store the data entries
     data = {}
 
-    # Use ORM to get the data
-    # table = Table(table_name, db.metadata, autoload=True, autoload_with=db.engine)
-    # query = db.session.query(table).all()
-    # data = [{column.name: getattr(row, column.name) for column in table.columns} for row in query]
-    # return data
-    # If table is empty, return empty list
+    # Use ORM to get the data entries from the shard tables. If table is empty, return empty list
     for shard in shards:
         data[shard] = []
         table = ClassFactory(shard)
         query = db.session.query(table).all()
         for row in query:
             data[shard].append({"Stud_id":row.Stud_id, "Stud_name":row.Stud_name, "Stud_marks":row.Stud_marks})
+        
+    data["status"] = "success"
 
     # Returning the dictionary along with the status code 200
     return data, 200
@@ -231,22 +212,40 @@ def write():
     shard = payload.get('shard')
     curr_idx = int(payload.get('curr_idx'))
     data = payload.get('data')
+    duplicate = 0
+    message = {}
 
     # Dictionary to store the data entries
     dataEntries = []
 
-    # Iterating through the data entries. Use ORM to insert the data
+    # Iterating through the data entries. Use ORM to insert the data. Also check for duplicate entries and entries that does not violate the integrity constraints
     for entry in data:
+        # Check if the entry already exists in the shard
         table = ClassFactory(shard)
-        new_entry = table(Stud_id=entry['Stud_id'], Stud_name=entry['Stud_name'], Stud_marks=entry['Stud_marks'])
-        db.session.add(new_entry)
-        dataEntries.append(new_entry)
+        query = db.session.query(table).filter_by(Stud_id=entry['Stud_id']).all()
+        if len(query) > 0:
+            duplicate += 1
+            # If the entry already exists, skip the entry
+            continue
+        # If the entry does not exist, add the entry to the list
+        dataEntries.append(table(Stud_id=entry['Stud_id'], Stud_name=entry['Stud_name'], Stud_marks=entry['Stud_marks']))
+        print("Entry added")
 
-    # Commit the transaction
+    # Add the data entries to the shard table
+    db.session.add_all(dataEntries)
     db.session.commit()
+    
 
     # Returning the dictionary along with the status code 200
-    return {"message": "Data entries added", "current_idx": str(curr_idx + len(dataEntries)), "status": "success"}, 200
+    message["message"] = "Data entries added"
+    message["current_idx"] = str(curr_idx + len(dataEntries))
+    if duplicate > 0:
+        if duplicate == len(data):
+            message["message"] = "No data entries added. All entries are duplicate"
+        else:
+            message["message"] += " (" + str(duplicate) + " duplicate entries skipped)"
+    message["status"] = "success"
+    return message, 200
 
 # Server endpoint for requests at http://localhost:5000/read, methond=POST
 @app.route('/read', methods = ['POST'])
