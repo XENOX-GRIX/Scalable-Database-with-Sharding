@@ -7,6 +7,7 @@ from mysql import connector as ce
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import text
+from sqlalchemy import Table
 import logging
 
 #creating the Flask class object
@@ -19,6 +20,27 @@ app.config['SECRET_KEY'] = 'my key'
 
 # Creating the SQLALchemy object
 db = SQLAlchemy(app)
+
+# ORM Model for the Employees table
+# "columns":["Stud_id","Stud_name","Stud_marks"],
+# "dtypes":["Number","String","String"]
+# table name will be dynamically provided
+def ClassFactory(name):
+    # Check if the table already exists in metadata
+    existing_table = db.Model.metadata.tables.get(name)
+    if existing_table is not None:
+        print("Table already exists")
+        return type(name, (db.Model,), {'__tablename__': name, '__table__': existing_table})
+
+
+    tabledict={'Stud_id': db.Column(db.Integer, primary_key=True),
+               'Stud_name': db.Column(db.String(100)),
+               'Stud_marks': db.Column(db.String(100))}
+
+    newclass = type(name, (db.Model,), tabledict)
+    print("Table created")
+    return newclass
+
 
 # Server endpoint for requests at http://localhost:5000/home, methond=GET
 @app.route('/home', methods = ['GET'])
@@ -51,76 +73,6 @@ def invalidUrlHandler(path):
     # Returning the JSON object along with the status code 404
     return errorMessage, 404
 
-def executeQuery(query):
-    try:
-        # start a transaction
-        db.session.begin()
-        
-        # Execute the query using SQLAlchemy's session
-        db.session.execute(text(query))
-        # Commit the transaction
-        db.session.commit()
-        # end the transaction
-        db.session.close()
-
-        return True
-    except SQLAlchemyError as e:
-        # Rollback the transaction in case of an error
-        db.session.rollback()
-        print("Error executing query:", str(e))
-        return False
-    
-def executeAndReturn(query):
-    try:
-        # start a transaction
-        db.session.begin()
-        
-        # Execute the query using SQLAlchemy's session
-        result = db.session.execute(text(query))
-        # Commit the transaction
-        db.session.commit()
-        # end the transaction
-        db.session.close()
-
-        return result.fetchall()
-    except SQLAlchemyError as e:
-        # Rollback the transaction in case of an error
-        db.session.rollback()
-        print("Error executing query:", str(e))
-        return None
-
-def createTable(table, columns, dtypes):
-    # mapping for the data types
-    dtypeMap = {"Number":"INT", "String":"VARCHAR2(100)"}
-
-    # Check if the table already exists
-    query = "SHOW TABLES LIKE '" + table + "'"
-    result = executeAndReturn(query)
-
-    # If the table already exists, return
-    if len(result) > 0:
-        print("Table already exists")
-        return
-    
-
-    # Creating query to create the table in the database
-    query = "CREATE TABLE " + table + " ("
-    for i in range(len(columns)):
-        query += columns[i] + " " + dtypeMap[dtypes[i]] + ","
-    # Make 'Stud_id' as primary key
-    query += " PRIMARY KEY (Stud_id)"
-
-    # close the query
-    query += ")"
-
-    print(query)
-
-    # Creating the table in the database
-    if executeQuery(query):
-        print("Table created successfully")
-    else:
-        print("Error creating table")
-
 # Server endpoint for requests at http://localhost:5000/config, methond=POST
 @app.route('/config', methods = ['POST'])
 def config():
@@ -148,7 +100,10 @@ def config():
             # Creating the shards in the database
             for shard in shards:
                 # Creating the table in the database
-                createTable(shard, columns, dtypes)
+                table = ClassFactory(shard)
+                db.create_all()
+                db.session.commit()
+                # Query to create the shard table
 
             # Server ID taking from the environment variable named SERVER_ID
             serverID = os.environ.get('SERVER_ID')
@@ -172,6 +127,25 @@ def config():
         # Returning the error message along with the status code 400
         return errorMessage, 400
 
+def executeAndReturn(query):
+    try:
+        # start a transaction
+        db.session.begin()
+        
+        # Execute the query using SQLAlchemy's session
+        result = db.session.execute(text(query))
+        # Commit the transaction
+        db.session.commit()
+        # end the transaction
+        db.session.close()
+
+        return result.fetchall()
+    except SQLAlchemyError as e:
+        # Rollback the transaction in case of an error
+        db.session.rollback()
+        print("Error executing query:", str(e))
+        return None
+
 # endpoint to show tables. Not in the assignment. Used for testing
 @app.route('/showTables', methods = ['GET'])
 def showTables():
@@ -192,23 +166,23 @@ def showTables():
     # Returning the list of tables along with the status code 200
     return {"tables": tables, "status": "success"}, 200
 
-# Server endpoint for requests at http://localhost:5000/copy, methond=GET
-# Endpoint (/copy, method=GET): This endpoint returns all data entries corresponding to one shard table in the server
-# container. Copy endpoint is further used to populate shard tables from replicas in case a particular server container fails,
-# as shown in Fig. 1. An example request-response pair is shown below.
-# Payload Json= {
-# "shards":["sh1","sh2"]
-# }
-# Response Json ={
-# "sh1" : [{"Stud_id":1232,"Stud_name":ABC,"Stud_marks":25},
-# {"Stud_id":1234,"Stud_name":DEF,"Stud_marks":28},
-# ....],
-# "sh2" : [{"Stud_id":2255,"Stud_name":GHI,"Stud_marks":27},
-# {"Stud_id":2535,"Stud_name":JKL,"Stud_marks":23},
-# ....],
-# "status" : "success"
-# },
-# Response Code = 200
+# # Server endpoint for requests at http://localhost:5000/copy, methond=GET
+# # Endpoint (/copy, method=GET): This endpoint returns all data entries corresponding to one shard table in the server
+# # container. Copy endpoint is further used to populate shard tables from replicas in case a particular server container fails,
+# # as shown in Fig. 1. An example request-response pair is shown below.
+# # Payload Json= {
+# # "shards":["sh1","sh2"]
+# # }
+# # Response Json ={
+# # "sh1" : [{"Stud_id":1232,"Stud_name":ABC,"Stud_marks":25},
+# # {"Stud_id":1234,"Stud_name":DEF,"Stud_marks":28},
+# # ....],
+# # "sh2" : [{"Stud_id":2255,"Stud_name":GHI,"Stud_marks":27},
+# # {"Stud_id":2535,"Stud_name":JKL,"Stud_marks":23},
+# # ....],
+# # "status" : "success"
+# # },
+# # Response Code = 200
 @app.route('/copy', methods = ['GET'])
 def copy():
     # Getting the list of shard tables from the payload
@@ -218,51 +192,38 @@ def copy():
     # Dictionary to store the data entries
     data = {}
 
-    # Iterating through the shard tables
+    # Use ORM to get the data
+    # table = Table(table_name, db.metadata, autoload=True, autoload_with=db.engine)
+    # query = db.session.query(table).all()
+    # data = [{column.name: getattr(row, column.name) for column in table.columns} for row in query]
+    # return data
+    # If table is empty, return empty list
     for shard in shards:
-        # Query to get the data entries from the shard table
-        query = "SELECT * FROM " + shard
-
-        # Execute the query using SQLAlchemy's session
-        result = executeAndReturn(query)
-
-        # List to store the data entries
-        dataEntries = []
-
-        # Iterating through the result and storing the data entries in the list
-        for row in result:
-            dataEntry = {}
-            for i in range(len(row)):
-                if i == 0:
-                    dataEntry["Stud_id"] = row[i]
-                elif i == 1:
-                    dataEntry["Stud_name"] = row[i]
-                elif i == 2:
-                    dataEntry["Stud_marks"] = row[i]
-            dataEntries.append(dataEntry)
-        
-        # Storing the data entries in the dictionary
-        data[shard] = dataEntries
+        data[shard] = []
+        table = ClassFactory(shard)
+        query = db.session.query(table).all()
+        for row in query:
+            data[shard].append({"Stud_id":row.Stud_id, "Stud_name":row.Stud_name, "Stud_marks":row.Stud_marks})
 
     # Returning the dictionary along with the status code 200
     return data, 200
 
 
-# Server endpoint for requests at http://localhost:5000/write, methond=POST
-# 5) Endpoint (/write, method=POST): This endpoint writes data entries in a shard in a particular server container. The
-# endpoint expects multiple entries to be written in the server container along with Shard id and the current index for the
-# shard. An example request-response pair is shown below.
-# Payload Json= {
-# "shard":"sh2",
-# "curr_idx": 507
-# "data": [{"Stud_id":2255,"Stud_name":GHI,"Stud_marks":27}, ...] /* 5 entries */
-# }
-# Response Json ={
-# "message": "Data entries added",
-# "current_idx": 512, /* 5 entries added */
-# "status" : "success"
-# },
-# Response Code = 200
+# # Server endpoint for requests at http://localhost:5000/write, methond=POST
+# # 5) Endpoint (/write, method=POST): This endpoint writes data entries in a shard in a particular server container. The
+# # endpoint expects multiple entries to be written in the server container along with Shard id and the current index for the
+# # shard. An example request-response pair is shown below.
+# # Payload Json= {
+# # "shard":"sh2",
+# # "curr_idx": 507
+# # "data": [{"Stud_id":2255,"Stud_name":GHI,"Stud_marks":27}, ...] /* 5 entries */
+# # }
+# # Response Json ={
+# # "message": "Data entries added",
+# # "current_idx": 512, /* 5 entries added */
+# # "status" : "success"
+# # },
+# # Response Code = 200
 @app.route('/write', methods = ['POST'])
 def write():
     # Getting the shard, current index and data entries from the payload
@@ -274,23 +235,15 @@ def write():
     # Dictionary to store the data entries
     dataEntries = []
 
-    # Iterating through the data entries
+    # Iterating through the data entries. Use ORM to insert the data
     for entry in data:
-        # Query to insert the data entry in the shard table
-        query = "INSERT INTO " + shard + " ("
-        for key in entry:
-            query += key + ", "
-        query = query[:-2] + ") VALUES ("
-        for key in entry:
-            query += "'" + str(entry[key]) + "', "
-        query = query[:-2] + ")"
+        table = ClassFactory(shard)
+        new_entry = table(Stud_id=entry['Stud_id'], Stud_name=entry['Stud_name'], Stud_marks=entry['Stud_marks'])
+        db.session.add(new_entry)
+        dataEntries.append(new_entry)
 
-        # Execute the query using SQLAlchemy's session
-        if executeQuery(query):
-            dataEntries.append(entry)
-        else:
-            # Returning the error message along with the status code 400
-            return {"message": "Error adding data entries", "status": "Unsuccessfull"}, 400
+    # Commit the transaction
+    db.session.commit()
 
     # Returning the dictionary along with the status code 200
     return {"message": "Data entries added", "current_idx": str(curr_idx + len(dataEntries)), "status": "success"}, 200
