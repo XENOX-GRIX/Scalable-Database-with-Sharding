@@ -173,7 +173,7 @@ def config():
         return errorMessage, 400
 
 # endpoint to show tables. Not in the assignment. Used for testing
-@app.route('/config', methods = ['GET'])
+@app.route('/showTables', methods = ['GET'])
 def showTables():
 
     # Query to get the list of tables in the database
@@ -294,6 +294,24 @@ def write():
 
     # Returning the dictionary along with the status code 200
     return {"message": "Data entries added", "current_idx": str(curr_idx + len(dataEntries)), "status": "success"}, 200
+
+# Server endpoint for requests at http://localhost:5000/read, methond=POST
+@app.route('/read', methods = ['POST'])
+def read():
+    message = {"mssage" : "To be implemented"}
+    return message, 200
+
+# Server endpoint for requests at http://localhost:5000/update, methond=PUT
+@app.route('/update', methods = ['PUT'])
+def update():
+    message = {"mssage" : "To be implemented"}
+    return message, 200
+
+# Server endpoint for requests at http://localhost:5000/del, methond=DELETE
+@app.route('/del', methods = ['DELETE'])
+def delete():
+    message = {"mssage" : "To be implemented"}
+    return message, 200
     
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
