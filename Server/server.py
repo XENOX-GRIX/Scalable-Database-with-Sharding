@@ -14,8 +14,9 @@ import logging
 app = Flask(__name__)
 
 # Connect to the database
-#mysql_engine = ce('mysql://root:password@localhost:3306/shardsDB')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:password@localhost:3306/shardsDB'
+# Retrieve server name from environment variable
+serverName = os.environ.get('SERVER_NAME')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+mysqlconnector://server:password@{serverName}:3306/shardsDB'
 app.config['SECRET_KEY'] = 'my key'
 
 # Creating the SQLALchemy object
@@ -133,13 +134,17 @@ def executeAndReturn(query):
         db.session.begin()
         
         # Execute the query using SQLAlchemy's session
-        result = db.session.execute(text(query))
+        executionResult = db.session.execute(text(query))
         # Commit the transaction
         db.session.commit()
         # end the transaction
         db.session.close()
 
-        return result.fetchall()
+        result = executionResult.fetchall()
+
+        if result is None or len(result) == 0:
+            result = []
+        return result
     except SQLAlchemyError as e:
         # Rollback the transaction in case of an error
         db.session.rollback()
@@ -155,11 +160,14 @@ def showTables():
 
     # Execute the query using SQLAlchemy's session
     result = executeAndReturn(query)
+    print("Checking\n")
+    print(result)
+    print("Checking\n")
 
     # List to store the tables
     tables = []
 
-    # Iterating through the result and storing the tables in the list
+    # Iterating through the result and storing the tables in the list only if result is not None or is not empty
     for row in result:
         tables.append(row[0])
 

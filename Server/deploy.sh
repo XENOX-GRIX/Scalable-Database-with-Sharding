@@ -1,7 +1,3 @@
 #!/bin/bash
-
-# Starting the MySQL server
-service mysql start
-
 # Starting the Flask application
-python3 server.py
+python3 /docker-entrypoint-initdb.d/server.py
