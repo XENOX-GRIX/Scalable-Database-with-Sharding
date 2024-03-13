@@ -9,14 +9,17 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import text
 from sqlalchemy import Table
 import logging
+from threading import Lock
+
+# Lock to handle the concurrency issues
+lock = Lock()
 
 #creating the Flask class object
 app = Flask(__name__)
 
-# Connect to the database
-# Configuration
+# Environment Variables to cnnect to database. If not present, use the default values
 DATABASE_USER = os.environ.get('MYSQL_USER', 'root')
-DATABASE_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'password')
+DATABASE_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'abc')
 DATABASE_DB = os.environ.get('MYSQL_DATABASE', 'shardsDB')
 DATABASE_HOST = os.environ.get('MYSQL_HOST', 'localhost')
 DATABASE_PORT = os.environ.get('MYSQL_PORT', '3306')
@@ -29,7 +32,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Creating the SQLALchemy object
 db = SQLAlchemy(app)
 
-# ORM Model for the Employees table. Table name will be dynamically provided
+# ORM Model for the Student table. Table name will be dynamically provided
 def ClassFactory(name):
     # Check if the table already exists in metadata
     existing_table = db.Model.metadata.tables.get(name)
@@ -64,31 +67,20 @@ def heartbeat():
     # Returning empty response along with status code 200
     return "", 200
 
-# Server endpoints for all other requests. Kind of error handler
-@app.route('/', defaults={'path': ''}, methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'])
-@app.route('/<path:path>', methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'])
-def invalidUrlHandler(path):
-    # Returning an error message stating the valid endpoints
-    errorMessage = {"message": "Invalid Endpoint",
-                    "Valid Endpoints": ["/home method='GET'", "/heartbeat method='GET'"],
-                    "status": "Unsuccessfull"}
-    
-    # Returning the JSON object along with the status code 404
-    return errorMessage, 404
-
 # Server endpoint for requests at http://localhost:5000/config, methond=POST
 @app.route('/config', methods = ['POST'])
 def config():
+    message = {}
+    statusCode = 0
 
     try:
+        # Getting the schema and shards from the payload
         payload = request.get_json()
         schema = payload.get('schema')
         shards = payload.get('shards')
 
         # checking if the schema and shards are present in the payload
-        errorMessage = {}
-        successMessage = {}
-        successMessage["message"] = ""
+        message["message"] = ""
         isError = False
         # Server ID taking from the environment variable named SERVER_ID
         serverID = os.environ.get('SERVER_ID')
@@ -111,30 +103,33 @@ def config():
                     # Check if the table already exists in metadata
                     existing_table = db.Model.metadata.tables.get(shard)
                     if existing_table is not None:
-                        successMessage["message"] += serverName + ":" + shard + "(existing), "
+                        message["message"] += serverName + ":" + shard + "(existing), "
                         continue
                     # Creating the table in the database
                     table = ClassFactory(shard)
                     db.create_all()
                     db.session.commit()
-                    successMessage["message"] += serverName + ":" + shard + ", "
+                    message["message"] += serverName + ":" + shard + ", "
 
                 # Returning the success message along with the status code 200
                 # Remove the last comma from the message
-                successMessage["message"] = successMessage["message"][:-2]
-                successMessage["message"] += "configured"
-                successMessage["status"] = "success"
-                return successMessage, 200
+                message["message"] = message["message"][:-2]
+                message["message"] += "configured"
+                message["status"] = "success"
+                statusCode = 200
             
         # If the schema or shards are not present in the payload
         if isError:
-            errorMessage["message"] = "Invalid Payload"
-            errorMessage["status"] = "Unsuccessfull"
+            message["message"] = "Invalid Payload"
+            message["status"] = "Unsuccessfull"
+            statusCode = 400
     except Exception as e:
-        errorMessage["message"] = "Error: " + str(e)
+        message["message"] = "Error: " + str(e)
+        message["status"] = "Unsuccessfull"
+        statusCode = 400
 
         # Returning the error message along with the status code 400
-        return errorMessage, 400
+        return message, statusCode
 
 def executeAndReturn(query):
     try:
@@ -156,103 +151,121 @@ def executeAndReturn(query):
     except SQLAlchemyError as e:
         # Rollback the transaction in case of an error
         db.session.rollback()
-        return "Error: " + str(e)
+        # throw the exception to the calling function
+        raise e
 
 # endpoint to show tables. Not in the assignment. Used for testing
 @app.route('/showTables', methods = ['GET'])
 def showTables():
+    message = {}
+    statusCode = 0
 
-    # Query to get the list of tables in the database
-    query = "SHOW TABLES"
+    try:
+        # Query to get the list of tables in the database
+        query = "SHOW TABLES"
 
-    # Execute the query using SQLAlchemy's session
-    result = executeAndReturn(query)
+        # Execute the query using SQLAlchemy's session
+        result = executeAndReturn(query)
 
-    # List to store the tables
-    tables = []
+        # List to store the tables
+        tables = []
 
-    # Iterating through the result and storing the tables in the list only if result is not None or is not empty
-    for row in result:
-        tables.append(row[0])
+        # Iterating through the result and storing the tables in the list only if result is not None or is not empty
+        for row in result:
+            tables.append(row[0])
 
-    # Returning the list of tables along with the status code 200
-    return {"tables": tables, "status": "success"}, 200
+        message = {"tables": tables, "status": "success"}
+        statusCode = 200
+    except Exception as e:
+        # Message with error description
+        message = {"message": "Error: " + str(e), "status": "Unsuccessfull"}
+        statusCode = 400
+    
+    return message, statusCode
 
 # # Server endpoint for requests at http://localhost:5000/copy, methond=GET
 @app.route('/copy', methods = ['GET'])
 def copy():
+    message = {}
+    statusCode = 0
+    
     try:
         # Getting the list of shard tables from the payload
         payload = request.get_json()
         shards = payload.get('shards')
 
-        # Dictionary to store the data entries
-        data = {}
-
         # Use ORM to get the data entries from the shard tables. If table is empty, return empty list
         for shard in shards:
-            data[shard] = []
+            message[shard] = []
             table = ClassFactory(shard)
             query = db.session.query(table).all()
             for row in query:
-                data[shard].append({"Stud_id":row.Stud_id, "Stud_name":row.Stud_name, "Stud_marks":row.Stud_marks})
+                message[shard].append({"Stud_id":row.Stud_id, "Stud_name":row.Stud_name, "Stud_marks":row.Stud_marks})
             
-        data["status"] = "success"
+        message["status"] = "success"
+        statusCode = 200
     except Exception as e:
-        data = {"message": "Error: " + str(e), "status": "Unsuccessfull"}
+        message = {"message": "Error: " + str(e), "status": "Unsuccessfull"}
+        statusCode = 400
 
     # Returning the dictionary along with the status code 200
-    return data, 200
+    return message, statusCode
 
 @app.route('/write', methods = ['POST'])
 def write():
+    message = {}
+    statusCode = 0
+
     try:
-        # Getting the shard, current index and data entries from the payload
-        payload = request.get_json()
-        shard = payload.get('shard')
-        curr_idx = int(payload.get('curr_idx'))
-        data = payload.get('data')
-        duplicate = 0
-        message = {}
+        with lock:
+            # Getting the shard, current index and data entries from the payload
+            payload = request.get_json()
+            shard = payload.get('shard')
+            curr_idx = int(payload.get('curr_idx'))
+            data = payload.get('data')
+            duplicate = 0
+            
+            # List to store the data entries
+            dataEntries = []
 
-        # Dictionary to store the data entries
-        dataEntries = []
+            # Iterating through the data entries. Use ORM to insert the data. Also check for duplicate entries and entries that does not violate the integrity constraints
+            for entry in data:
+                # Check if the entry already exists in the shard
+                table = ClassFactory(shard)
+                query = db.session.query(table).filter_by(Stud_id=entry['Stud_id']).all()
+                if len(query) > 0:
+                    duplicate += 1
+                    # If the entry already exists, skip the entry
+                    continue
+                # If the entry does not exist, add the entry to the list
+                dataEntries.append(table(Stud_id=entry['Stud_id'], Stud_name=entry['Stud_name'], Stud_marks=entry['Stud_marks']))
+                print("Entry added")
 
-        # Iterating through the data entries. Use ORM to insert the data. Also check for duplicate entries and entries that does not violate the integrity constraints
-        for entry in data:
-            # Check if the entry already exists in the shard
-            table = ClassFactory(shard)
-            query = db.session.query(table).filter_by(Stud_id=entry['Stud_id']).all()
-            if len(query) > 0:
-                duplicate += 1
-                # If the entry already exists, skip the entry
-                continue
-            # If the entry does not exist, add the entry to the list
-            dataEntries.append(table(Stud_id=entry['Stud_id'], Stud_name=entry['Stud_name'], Stud_marks=entry['Stud_marks']))
-            print("Entry added")
+            # Add the data entries to the shard table
+            db.session.add_all(dataEntries)
+            db.session.commit()
+            
 
-        # Add the data entries to the shard table
-        db.session.add_all(dataEntries)
-        db.session.commit()
-        
-
-        # Returning the dictionary along with the status code 200
-        message["message"] = "Data entries added"
-        message["current_idx"] = str(curr_idx + len(dataEntries))
-        if duplicate > 0:
-            if duplicate == len(data):
-                message["message"] = "No data entries added. All entries are duplicate"
-            else:
-                message["message"] += " (" + str(duplicate) + " duplicate entries skipped)"
-        message["status"] = "success"
+            # Returning the dictionary along with the status code 200
+            message["message"] = "Data entries added"
+            message["current_idx"] = str(curr_idx + len(dataEntries))
+            if duplicate > 0:
+                if duplicate == len(data):
+                    message["message"] = "No data entries added. All entries are duplicate"
+                else:
+                    message["message"] += " (" + str(duplicate) + " duplicate entries skipped)"
+            message["status"] = "success"
+            statusCode = 200
     except Exception as e:
         message = {"message": "Error: " + str(e), "status": "Unsuccessfull"}
+        statusCode = 400
 
-    return message, 200
+    return message, statusCode
 
 @app.route('/read', methods = ['POST'])
 def read():
     message = {}
+    statusCode = 0
 
     try:
         # Getting the shard, low and high from the payload
@@ -271,22 +284,35 @@ def read():
             data.append({"Stud_id":row.Stud_id, "Stud_name":row.Stud_name, "Stud_marks":row.Stud_marks})
         message["data"] = data
         message["status"] = "success"
+        statusCode = 200
     except Exception as e:
         message = {"message": "Error: " + str(e), 
                    "status": "Unsuccessfull"}
+        statusCode = 400
 
-    return message, 200
+    return message, statusCode
 
 # Server endpoint for requests at http://localhost:5000/update, methond=PUT
 @app.route('/update', methods = ['PUT'])
 def update():
-    message = {"mssage" : "To be implemented"}
-    return message, 200
+    message = {}
+    statusCode = 0
+    
+    try:
+        with lock:
+            message = {"mssage" : "To be implemented"}
+            statusCode = 200
+    except Exception as e:
+        message = {"message": "Error: " + str(e), 
+                   "status": "Unsuccessfull"}
+        statusCode = 400
+    return message, statusCode
 
 # Server endpoint for requests at http://localhost:5000/del, methond=DELETE
 @app.route('/del', methods = ['DELETE'])
 def delete():
     message = {}
+    statusCode = 0
 
     try:
         # Getting the shard and Stud_id from the payload
@@ -300,11 +326,25 @@ def delete():
         db.session.commit()
         message["message"] = "Data entry with Stud_id:" + str(Stud_id) + " removed"
         message["status"] = "success"
+        statusCode = 200
     except Exception as e:
         message = {"message": "Error: " + str(e), 
                    "status": "Unsuccessfull"}
+        statusCode = 400
 
-    return message, 200
+    return message, statusCode
+
+# Server endpoints for all other requests. Kind of error handler
+@app.route('/', defaults={'path': ''}, methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'])
+@app.route('/<path:path>', methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'])
+def invalidUrlHandler(path):
+    # Returning an error message stating the valid endpoints
+    errorMessage = {"message": "Invalid Endpoint",
+                    "Valid Endpoints": ["/home method='GET'", "/heartbeat method='GET'"],
+                    "status": "Unsuccessfull"}
+    
+    # Returning the JSON object along with the status code 404
+    return errorMessage, 404
     
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)
