@@ -1,3 +1,2 @@
 #!/bin/bash
-# Starting the Flask application
-python3 /docker-entrypoint-initdb.d/server.py
+python3 /bkr/server.py &

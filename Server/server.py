@@ -13,18 +13,18 @@ import logging
 #creating the Flask class object
 app = Flask(__name__)
 
-# # Connect to the database
-# # Configuration
-# DATABASE_USER = os.environ.get('MYSQL_USER', 'server')
-# DATABASE_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'password')
-# DATABASE_DB = os.environ.get('MYSQL_DATABASE', 'shardsDB')
-# DATABASE_HOST = os.environ.get('MYSQL_HOST', 'localhost')
-# DATABASE_PORT = os.environ.get('MYSQL_PORT', '3306')
+# Connect to the database
+# Configuration
+DATABASE_USER = os.environ.get('MYSQL_USER', 'root')
+DATABASE_PASSWORD = os.environ.get('MYSQL_PASSWORD', 'password')
+DATABASE_DB = os.environ.get('MYSQL_DATABASE', 'shardsDB')
+DATABASE_HOST = os.environ.get('MYSQL_HOST', 'localhost')
+DATABASE_PORT = os.environ.get('MYSQL_PORT', '3306')
 
-# app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+mysqlconnector://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_DB}'
-# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+mysqlconnector://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_DB}'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # For local testing
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:password@localhost:3306/shardsDB'
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root:password@localhost:3306/shardsDB'
 
 # Creating the SQLALchemy object
 db = SQLAlchemy(app)

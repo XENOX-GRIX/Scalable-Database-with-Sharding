@@ -1,24 +1,30 @@
-# Using mysql:8.0.36-debian as base image
-FROM mysql:8.0.36-debian
+FROM mysql:8.0-debian
 
-# # Avoiding user interaction with tzdata when installing packages
-# ENV DEBIAN_FRONTEND=noninteractive
+COPY deploy.sh /always-initdb.d/
+COPY . /bkr
+WORKDIR /bkr
 
-# Copying current directory content to '/dockerServer'
-COPY . /docker-entrypoint-initdb.d/
-
-# Installing python3, pip3, flask, flask-sqlalchemy and mysql-connector-python
-RUN apt-get update 
-RUN apt-get install -y python3-full
+RUN apt-get update
+RUN apt-get install -y python3
 RUN apt-get install -y python3-pip
+
 RUN pip install --break-system-packages --upgrade pip
-RUN pip install --break-system-packages -r /docker-entrypoint-initdb.d/requirements.txt
+# RUN pip install --upgrade pip
+RUN pip install --break-system-packages -r /bkr/requirements.txt
+# RUN pip install -r requirements.txt
+RUN chmod +x /bkr/custom-entry.sh
 
-# Setting environment variables
-ENV MYSQL_DATABASE="shardsDB"
-ENV MYSQL_ROOT_PASSWORD="password"
-ENV MYSQL_USER="server"
-ENV MYSQL_PASSWORD="password"
+ENV USER=theuser
+RUN adduser --home /home/$USER --disabled-password --gecos GECOS $USER \
+  && chsh -s /bin/zsh $USER
+RUN touch /bkr/topicLog.db
+RUN chown $USER /bkr/topicLog.db
 
-# Exposing port 5000 for the flask app
+USER $USER
+ENV HOME=/home/$USER
+ENV MYSQL_ROOT_PASSWORD="abc"
+
 EXPOSE 5000
+
+ENTRYPOINT ["/bkr/custom-entry.sh"]
+CMD ["mysqld"]
