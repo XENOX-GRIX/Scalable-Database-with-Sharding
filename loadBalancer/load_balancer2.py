@@ -302,10 +302,12 @@ def invalidUrlHandler(path):
 
 server_urls = {}
 number_of_replicas = 3
-shard_ids = {}
+shard_hash_maps = {}
 shard_information = {}
 server_schema = None
 server_shard_mapping = {}
+server_id_to_name = {}
+shard_locks = {}
 
 
 def get_random_server_id() : 
@@ -314,10 +316,17 @@ def get_random_server_id() :
 def get_server_url(name): 
     return f"http://{name}:5000/"
 
+def get_shard_id_from_stud_id(id):
+    for shardId, info in shard_information.items(): 
+        if id >= info['Stud_id_low'] and id < (info['Stud_id_low'] + info['Shard_size']):
+            return shardId, info['Stud_id_low'] + info['Shard_size']
+    return None, None
 
 # 1) ShardT (Stud id low: Number, Shard id: Number, Shard size:Number, valid idx:Number)
 # 2) MapT (Shard id: Number, Server id: Number)
 
+
+# TODO 
 current_configuration = {
     "N" : 0, 
     "schema" : {}, 
@@ -337,7 +346,8 @@ def initialize_database():
     servers = data.get('servers')
 
     for item in shards : 
-        shard_information[item['Shard_id']] = item 
+        shard_information[item['Shard_id']] = item
+        shard_information[item['Shard_id']]['valid_idx'] = 0
 
     for k, v in servers.items(): 
         random_server_id = get_random_server_id() 
@@ -346,14 +356,15 @@ def initialize_database():
             name = f"Server{random_server_id}"
         helper.createServer(random_server_id, name, 5001)
         server_hash[name] = random_server_id
+        server_id_to_name[random_server_id] = name
         requests.post(get_server_url(name), json={
             'schema': server_schema,
             'shards': v
         })
         for shard_id in v:
-            if shard_id not in shard_ids : 
-                shard_ids[shard_id] = ConsistentHashmapImpl([], virtualServers, slotsInHashMap)
-            shard_ids[shard_id].addServer(random_server_id, name)
+            if shard_id not in shard_hash_maps :
+                shard_hash_maps[shard_id] = ConsistentHashmapImpl([], virtualServers, slotsInHashMap)
+            shard_hash_maps[shard_id].addServer(random_server_id, name)
             if k not in server_shard_mapping : 
                 server_shard_mapping[k] = []
             server_shard_mapping[k].append(shard_id)
@@ -377,12 +388,13 @@ def add_servers():
     servers = data.get('servers')
     message = "Added "
     
-    if len(servers) < N or N<0 : 
+    if len(servers) < N or N < 0 :  
         return {"message": f"Number of new servers {N} is greater than newly added instances", 
                 "status" : "failure"}, 400
- 
+
     for item in shards :
         shard_information[item['Shard_id']] = item
+        shard_information[item['Shard_id']]['valid_idx'] = 0
 
     for k, v in servers.items(): 
         random_server_id = get_random_server_id() 
@@ -392,14 +404,15 @@ def add_servers():
         message+=f"{name} "
         helper.createServer(random_server_id, name, 5001)
         server_hash[name] = random_server_id
+        server_id_to_name[random_server_id] = name
         requests.post(get_server_url(name), json={
             'schema': server_schema,
             'shards': v
         })
         for shard_id in v:
-            if shard_id not in shard_ids : 
-                shard_ids[shard_id] = ConsistentHashmapImpl([], virtualServers, slotsInHashMap)
-            shard_ids[shard_id].addServer(random_server_id, name)
+            if shard_id not in shard_hash_maps : 
+                shard_hash_maps[shard_id] = ConsistentHashmapImpl([], virtualServers, slotsInHashMap)
+            shard_hash_maps[shard_id].addServer(random_server_id, name)
             if k not in server_shard_mapping : 
                 server_shard_mapping[k] = []
             server_shard_mapping[k].append(shard_id)
@@ -429,7 +442,7 @@ def remove():
     # Server Removal 
     for server in servers : 
         for shard_id in server_shard_mapping[server] : 
-            shard_ids[shard_id].removeServer(server_hash[server], server)
+            shard_hash_maps[shard_id].removeServer(server_hash[server], server)
         del server_shard_mapping[server]
         del server_hash[server]
         N-=1
@@ -437,7 +450,7 @@ def remove():
     while N != 0: 
         random_server = random.choice(list(server_hash.keys()))
         for shard_id in server_shard_mapping[random_server] : 
-            shard_ids[shard_id].removeServer(server_hash[random_server], random_server)
+            shard_hash_maps[shard_id].removeServer(server_hash[random_server], random_server)
         del server_shard_mapping[random_server]
         del server_hash[random_server]
         N-=1
@@ -446,19 +459,138 @@ def remove():
 
 @app.route('/read', methods=['POST'])
 def read():
-    return jsonify({'message': 'Read successful'}), 200
+    data = request.json
+    stud_id_low = data.get('Stud_id', {}).get('low')
+    stud_id_high = data.get('Stud_id', {}).get('high')
+    start_id = stud_id_low
+    shards_queried = []
+    while True : 
+        shard_id, end_id = get_shard_id_from_stud_id(start_id)
+        if end_id <= stud_id_high: 
+            shards_queried.append([shard_id, start_id, end_id])
+            break
+        shards_queried.append([shard_id, start_id, end_id])
+        start_id = end_id
+        
+    data_entries = []
+    for shard_id, start_id, end_id in shards_queried:
+        request_id = random.randint(100000, 999999)
+        load_balancer_url = f"{get_server_url(server_id_to_name[shard_hash_maps[shard_id].getContainerID(request_id)])}read"
+        payload = {
+            'Stud_id': {'low': start_id, 'high': end_id} 
+        }
+        response = requests.post(load_balancer_url, json=payload)
+        if response.status_code == 200:
+            response_json = response.json()
+            data_entries.extend(response_json.get('data', []))
+        else:
+            print("Failed to get response from load balancer. Status code:", response.status_code)
+    return jsonify({'shards_queried': shards_queried, 'data': data_entries, 'status': 'success'}), 200
+
 
 @app.route('/write', methods=['POST'])
 def write():
-    return jsonify({'message': 'Write successful'}), 200
+    global database_config, shard_locks
+    data_entries = request.json.get('data', [])
+
+    shard_queries = {}
+    entries_added = 0
+
+    for entry in data_entries: 
+        stud_id = entry.get('Stud_id')
+        shard_id, end_id = get_shard_id_from_stud_id(stud_id)
+        if shard_id is not None : 
+            if shard_id not in shard_queries :
+                shard_queries[shard_id] = []
+            shard_queries[shard_id].append(entry)
+
+    for shard_id, entry in shard_queries:
+        shard_lock = shard_locks.setdefault(shard_id, threading.Lock())
+        shard_lock.acquire()
+        try:
+            server_list = shard_hash_maps[shard_id].getServers()
+            curr_idx = shard_information[shard_id]['valid_idx']
+            for serverName in server_list :
+                load_balancer_url = f"{get_server_url(serverName)}write"
+                payload = {
+                    'shard': shard_id, 'curr_idx': curr_idx, "data" : entry 
+                }
+                response = requests.post(load_balancer_url, json=payload)
+                if response.status_code == 200:
+                    response_json = response.json()
+                    shard_information[shard_id]['valid_idx'] = response_json.get('current_idx')
+                    entries_added+=(shard_information[shard_id]['valid_idx'] - curr_idx)
+                else:
+                    print("Failed to get response from load balancer. Status code:", response.status_code)
+        finally:
+            shard_lock.release()
+
+    return jsonify({'message': f"{entries_added} Data entries added", 'status': 'success'}), 200
+
+
 
 @app.route('/update', methods=['PUT'])
 def update():
-    return jsonify({'message': 'Update successful'}), 200
+    data_entry = request.json.get('data', {})
+    stud_id = request.json.get('stud_id', {})
+    shard_id, end_id = get_shard_id_from_stud_id(stud_id)
+    if shard_id is not None : 
+        shard_lock = shard_locks.setdefault(shard_id, threading.Lock())
+        shard_lock.acquire()
+        message = ""
+        code = 200
+        try:
+            server_list = shard_hash_maps[shard_id].getServers()
+            for serverName in server_list :
+                if code == 400 :
+                    break
+                load_balancer_url = f"{get_server_url(serverName)}write"
+                payload = {
+                    'shard': shard_id, 'Stud_id': stud_id, "data" : data_entry 
+                }
+                response = requests.post(load_balancer_url, json=payload)
+                if response.status_code == 200:
+                    message =  f"Data entry for Stud_id: {stud_id} updated"
+                else:
+                    print("Failed to get response from load balancer. Status code:", response.status_code)
+                    message = 'Update Unsuccessful'
+                    code = 400
+        finally:
+            shard_lock.release()
+        return jsonify({'message': message, 'status' : "successful"}), code
+    return jsonify({'message': 'Update Unsuccessful'}), 400 
 
 @app.route('/del', methods=['DELETE'])
 def delete():
-    return jsonify({'message': 'Delete successful'}), 200
+    stud_id = request.json.get('stud_id', {})
+    shard_id, end_id = get_shard_id_from_stud_id(stud_id)
+    if shard_id is not None : 
+        shard_lock = shard_locks.setdefault(shard_id, threading.Lock())
+        shard_lock.acquire()
+        message = ""
+        code = 200
+        try:
+            server_list = shard_hash_maps[shard_id].getServers()
+            for serverName in server_list :
+                if code == 400 :
+                    break
+                load_balancer_url = f"{get_server_url(serverName)}write"
+                payload = {
+                    'shard': shard_id, 'Stud_id': stud_id 
+                }
+                response = requests.post(load_balancer_url, json=payload)
+                if response.status_code == 200:
+                    message =  f"Data entry with Stud_id: {stud_id} removed from all replicas"
+                else:
+                    print("Failed to get response from load balancer. Status code:", response.status_code)
+                    message = 'Update Unsuccessful'
+                    code = 400
+        finally:
+            shard_lock.release()
+        return jsonify({'message': message, 'status' : "successful"}), code
+    return jsonify({'message': 'Update Unsuccessful'}), 400 
+
+
 
 # Error handling
 @app.errorhandler(404)
