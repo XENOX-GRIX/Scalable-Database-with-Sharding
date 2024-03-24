@@ -129,7 +129,7 @@ def config():
         statusCode = 400
 
         # Returning the error message along with the status code 400
-        return message, statusCode
+    return message, statusCode
 
 def executeAndReturn(query):
     try:
@@ -340,7 +340,13 @@ def delete():
 def invalidUrlHandler(path):
     # Returning an error message stating the valid endpoints
     errorMessage = {"message": "Invalid Endpoint",
-                    "Valid Endpoints": ["/home method='GET'", "/heartbeat method='GET'"],
+                    "Valid Endpoints": ["/heartbeat method='GET'",
+                                        "/config method='POST'",
+                                        "/copy method='GET'",
+                                        "/write method='POST'",
+                                        "/read method='POST'",
+                                        "/update method='PUT'",
+                                        "/del method='DELETE'"],
                     "status": "Unsuccessfull"}
     
     # Returning the JSON object along with the status code 404
