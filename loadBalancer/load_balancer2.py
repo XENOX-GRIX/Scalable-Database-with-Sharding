@@ -11,7 +11,6 @@ from ConsistentHashmap import ConsistentHashmapImpl
 app = Flask(__name__)
 
 replicas = []
-# os.popen(f"sudo docker build -t serverimage ./Server")
 
 N = 3
 currentNumberofServers = 0
@@ -96,6 +95,19 @@ server_schema = None
 server_shard_mapping = {}
 server_id_to_name = {}
 shard_locks = {}
+ports = {}
+def get_random_ports():
+    counter = 0 
+    while True and counter < 10000: 
+        x = random.randint(1, 1000) 
+        if x not in ports :
+            ports[x] = 1 
+            return 5000+x 
+        counter+=1
+    return -1
+
+def remove_ports(id): 
+    del ports[id] 
 
 
 def get_random_server_id() : 
@@ -103,6 +115,8 @@ def get_random_server_id() :
 
 def get_server_url(name): 
     return f"http://{name}:5000/"
+    # using the following as container withing container for testing will take a lot of time 
+    # return f"http://10.0.2.15:5000/"
 
 def get_shard_id_from_stud_id(id):
     for shardId, info in shard_information.items(): 
@@ -131,13 +145,12 @@ def initialize_database():
     server_schema = data.get('schema')
     shards = data.get('shards')
     servers = data.get('servers')
+    print(N, servers)
 
     # Update the current_configuration for status endpoint
     current_configuration['N']+=int(N)
     current_configuration['schema'] = server_schema
     current_configuration['shards'].extend(shards)
-
-
 
     for item in shards : 
         shard_information[item['Shard_id']] = item
@@ -149,10 +162,19 @@ def initialize_database():
         name = k 
         if '$' in k : 
             name = f"Server{random_server_id}"
-        helper.createServer(random_server_id, name, 5000)
+        helper.createServer(random_server_id, name, get_random_ports())
+        while True:
+            try : 
+                response = requests.get(f"{get_server_url(name)}home")
+                if response.status_code == 200 :
+                    break
+            except Exception as e:
+                time.sleep(30)
+                continue
+
         server_hash[name] = random_server_id
         server_id_to_name[random_server_id] = name
-        requests.post(get_server_url(name), json={
+        requests.post(f"{get_server_url(name)}config", json={
             'schema': server_schema,
             'shards': v
         })
@@ -163,7 +185,6 @@ def initialize_database():
             if k not in server_shard_mapping : 
                 server_shard_mapping[k] = []
             server_shard_mapping[k].append(shard_id)
-
 
     response_json = {
         "message": "Configured Database",
@@ -204,7 +225,16 @@ def add_servers():
         if '$' in k : 
             name = f"Server{random_server_id}"
         message+=f"{name} "
-        helper.createServer(random_server_id, name, 5001)
+        helper.createServer(random_server_id, name, get_random_ports())
+        while True:
+            try : 
+                response = requests.get(f"{get_server_url(name)}home")
+                if response.status_code == 200 :
+                    break
+            except Exception as e:
+                time.sleep(30)
+                continue
+
         server_hash[name] = random_server_id
         server_id_to_name[random_server_id] = name
         requests.post(get_server_url(name), json={
@@ -305,7 +335,7 @@ def write():
             if shard_id not in shard_queries :
                 shard_queries[shard_id] = []
             shard_queries[shard_id].append(entry)
-
+    
     for shard_id, entry in shard_queries:
         shard_lock = shard_locks.setdefault(shard_id, threading.Lock())
         shard_lock.acquire()
@@ -417,5 +447,6 @@ if __name__ =='__main__':
     #     currentNumberofServers+=1
 
     # start_health_check_thread()
-    print(os.popen(f"docker network create my_network").read())
+    print(os.popen(f"sudo docker rm my_network").read())
+    print(os.popen(f"sudo docker network create my_network").read())
     app.run(host="0.0.0.0", port=5000, threaded=True)

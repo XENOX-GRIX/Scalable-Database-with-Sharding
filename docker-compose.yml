@@ -4,7 +4,7 @@ services:
   server:
     build:
       context: ./Server
-    image: serverimage
+    image: my-server-app
     networks:
       - my_network
     restart: always
@@ -24,7 +24,7 @@ services:
     restart: always
     mem_limit: 1g
     environment:
-      - SERVER_IMAGE_NAME=serverimage
+      - SERVER_IMAGE_NAME=my-server-app
 
 networks:
   my_network:

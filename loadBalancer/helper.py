@@ -23,7 +23,11 @@ def get_container_iD(container_name):
 
 
 def createServer(id, container_name, port):
-    os.popen(f"docker stop {container_name}")
-    os.popen(f"docker rm {container_name}")
-    return os.popen(f'docker run -p 5000:5000 -e "SERVER_ID=123456" -e "MYSQL_USER=server" -e "MYSQL_PASSWORD=abc" -e "MYSQL_DATABASE=shardsDB" -e "MYSQL_HOST=localhost" -e "MYSQL_PORT=3306" --name {container_name} my-server-app').read()
-    return os.popen(f'sudo docker run --name {container_name} --network my_network -e SERVER_ID={id} -p {port}:5000 -d serverimage').read()
+    os.popen(f"sudo docker stop {container_name}")
+    os.popen(f"sudo docker rm {container_name}")
+    # print("Yooo")
+    os.popen(f'sudo docker run -p {port}:5000 -e "SERVER_ID={id}" -e "MYSQL_USER=server" --network my_network -e "MYSQL_PASSWORD=abc" -e "MYSQL_DATABASE=shardsDB" -e "MYSQL_HOST=localhost" -e "MYSQL_PORT=3306" --name {container_name} -d my-server-app')
+    # return os.popen(f'sudo docker run --name {container_name} --network my_network -e SERVER_ID={id} -p {port}:5000 -d serverimage').read()
+    # print(f"Created Server {container_name}")
+    return 
+    # return os.popen(f'sudo docker run --name {container_name} --network my_network -e SERVER_ID={id} -p {port}:5000 -d serverimage').read()
