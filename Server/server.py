@@ -307,7 +307,7 @@ def update():
 
             table = ClassFactory(shard)
             query = db.session.query(table).filter_by(Stud_id=entry['Stud_id']).all()
-            if len(query) != 0:
+            if len(query) == 0:
                 message["message"] = "Nothing to update. Given ID does not exist."
             else:
                 table(Stud_id=entry['Stud_id'], Stud_name=entry['Stud_name'], Stud_marks=entry['Stud_marks'])
