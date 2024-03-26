@@ -50,4 +50,4 @@ ENV HOME=/home/$USER
 EXPOSE 5000
 
 # Running the server
-ENTRYPOINT python3 load_balancer.py
+ENTRYPOINT python3 load_balancer2.py

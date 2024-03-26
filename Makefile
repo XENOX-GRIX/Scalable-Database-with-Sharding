@@ -10,7 +10,7 @@ check_network:
 
 # Building and running the containers
 run: check_network
-	sudo docker build -t serverimage ./Server
+	sudo docker build -t my-server-app ./Server
 	sudo docker build -t loadbalancer ./loadBalancer
 	sudo docker run -p 5000:5000 --privileged=true -v /var/run/docker.sock:/var/run/docker.sock --name my_loadbalancer_app --network my_network -it loadbalancer
 
