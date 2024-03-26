@@ -1,6 +1,3 @@
-To create a README file that provides instructions on how to run the Python code for the analysis tasks A-1 to A-4, we'll outline the necessary steps for each task and explain how to interpret the results. This README template will guide users through the process of running the simulations and understanding the system's behavior under different configurations.
-
----
 
 # Distributed Database Simulation README
 
