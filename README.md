@@ -99,9 +99,10 @@ The project leverages Docker to run MySQL alongside the Flask application, facil
 
 ## Contributors
 
-- [Your Name]
-- [Team Member 2]
-- [Team Member 3]
+- Aakash Gupta
+- Rajanyo Paul
+- Avik Pramanick
+- Soham Banerjee
 
 ## License
 
