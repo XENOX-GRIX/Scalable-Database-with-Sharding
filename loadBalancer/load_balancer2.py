@@ -29,7 +29,7 @@ server_ids = [0] * (max_servers+1)
 #################################--------------------------------- ############# ---------------------------------#################################
 #################################--------------------------------- ############# ---------------------------------#################################
 
-number_of_replicas = 3
+number_of_replicas = 2
 shard_hash_maps = {}
 shard_information = {}
 server_schema = None
@@ -56,12 +56,12 @@ def get_random_server_id() :
     return random.randint(100000, 999999)
 
 def get_server_url(name):
-    if name == 'server3':
-        return f"http://10.0.2.15:5003/"
-    if name == 'server1':
-        return f"http://10.0.2.15:5001/"
-    if name == 'server2':
-        return f"http://10.0.2.15:5002/"
+    # if name == 'server3':
+    #     return f"http://10.0.2.15:5003/"
+    # if name == 'server1':
+    #     return f"http://10.0.2.15:5001/"
+    # if name == 'server2':
+    #     return f"http://10.0.2.15:5002/"
     
     return f"http://{name}:5000/"
     # return f"http://10.0.2.15:{server_name_to_id[name][1]}/"
@@ -83,27 +83,32 @@ def health_check():
             for server_name, shard_list in servers_copy.items():
                 if not check_server_health(get_server_url(server_name)):
                     print(f"Server : {server_name} is down. Removing from the pool.")
+                    down_servers.append(server_name) 
                     try :
                         os.system(f'sudo docker stop {server_name} && sudo docker rm -f {server_name}')
                     except :
-                        pass 
-                    down_servers.append(server_name)
+                        print("Server removed...") 
 
             # Check if the number of running servers is less than 3
+            # print(f"down Servers : {down_servers}")
             for name in down_servers :
                 helper.createServer(server_name_to_id[name], name, get_random_ports())
                 shard_ids = server_shard_mapping[name] 
-                while True  :
-                    response = requests.post(f"{get_server_url(name)}config", json={
-                        'schema': server_schema,
-                        'shards': shard_ids
-                    })
-                    if response.status_code == 200 : 
-                        break
+                while True :
+                    try : 
+                        response = requests.post(f"{get_server_url(name)}config", json={
+                            'schema': server_schema,
+                            'shards': shard_ids
+                        })
+                        if response.status_code == 200 : 
+                            print(f"Server {name} Spawned successfully")
+                            break
+                    except : 
+                        time.sleep(30)
                 try : 
                     shards_queried_ = {}
                     for i in shard_ids : 
-                        shard_queried_[i] = 0
+                        shards_queried_[i] = 0
                     servers_shards  = {}
                     for id_ in shard_ids :
                         server_list_ = set(shard_hash_maps[id_].getServers())
@@ -116,9 +121,9 @@ def health_check():
                     for k, v in servers_shards.items() :
                         val = []
                         for i in v : 
-                            if shard_queried_[i] == 0 : 
+                            if shards_queried_[i] == 0 : 
                                 val.append(i)
-                                shard_queried_[i] = 1
+                                shards_queried_[i] = 1
                         if len(val) == 0 : 
                             continue
                         response = requests.post(f"{get_server_url(k)}copy", json={
@@ -191,25 +196,22 @@ def initialize_database():
             if '$' in k : 
                 name = f"Server{random_server_id}"
             helper.createServer(random_server_id, name, get_random_ports())
+            server_id_to_name[random_server_id] = name
+            server_name_to_id[name] = random_server_id
+            
             while True:
                 try : 
-                    response = requests.get(f"{get_server_url(name)}home")
+                    response = requests.post(f"{get_server_url(name)}config", json={
+                        'schema': server_schema,
+                        'shards': v
+                    })
                     if response.status_code == 200 :
                         print(f"Successfully created Server : {name}")
                         print(response.text)
                         break
                 except Exception as e:
-                    time.sleep(10)
+                    time.sleep(30)
                     continue
-
-            server_id_to_name[random_server_id] = name
-            server_name_to_id[name] = random_server_id
-            response = requests.post(f"{get_server_url(name)}config", json={
-                'schema': server_schema,
-                'shards': v
-            })
-            print(response.text)
-            print(response.status_code)
 
             for shard_id in v:
                 if shard_id not in shard_hash_maps :
@@ -218,16 +220,18 @@ def initialize_database():
                 if name not in server_shard_mapping : 
                     server_shard_mapping[name] = []
                 server_shard_mapping[name].append(shard_id)
-        global number_of_replicas
-        for shards_ in shard_hash_maps.keys():
-            s1 = shard_hash_maps[shards_].getServers()
-            random_servers = max(0, number_of_replicas - len(s1))
-            if random_servers > 0 : 
-                random_server_list = random.sample(list(set(server_id_to_name) - set(s1)), random_servers)
-                for name in random_server_list : 
-                    shard_hash_maps[shard_id].addServer(server_name_to_id[name], name)
-                    server_shard_mapping[name].append(shards_)
 
+        # Sanity Check 
+
+        # global number_of_replicas
+        # for shards_ in shard_hash_maps.keys():
+        #     s1 = shard_hash_maps[shards_].getServers()
+        #     random_servers = max(0, number_of_replicas - len(s1))
+        #     if random_servers > 0 : 
+        #         random_server_list = random.sample(list(set(server_id_to_name) - set(s1)), random_servers)
+        #         for name in random_server_list : 
+        #             shard_hash_maps[shard_id].addServer(server_name_to_id[name], name)
+        #             server_shard_mapping[name].append(shards_)
 
     except Exception as e : 
         message = e
@@ -237,6 +241,7 @@ def initialize_database():
         "message": message,
         "status": status
     }
+    start_health_check_thread()
     return jsonify(response_json), 200
 
 @app.route('/status', methods=['GET'])
@@ -272,7 +277,7 @@ def add_servers():
         if '$' in k : 
             name = f"Server{random_server_id}"
         message+=f"{name} "
-        # helper.createServer(random_server_id, name, get_random_ports())
+        helper.createServer(random_server_id, name, get_random_ports())
         while True:
             try : 
                 response = requests.get(f"{get_server_url(name)}home")
@@ -340,7 +345,6 @@ def remove():
 
 
 
-
 @app.route('/read', methods=['POST'])
 def read():
     data = request.json
@@ -349,13 +353,16 @@ def read():
     start_id = stud_id_low
     shards_queried = []
 
-    while True : 
+    while True :
         shard_id, end_id = get_shard_id_from_stud_id(int(start_id))
+        print(start_id, end_id, shard_id)
         if end_id is None or end_id > stud_id_high:
+            if end_id is not None and stud_id_high > start_id: 
+                shards_queried.append([shard_id, start_id, end_id])
             break
         shards_queried.append([shard_id, start_id, end_id])
         start_id = end_id
-    print(shards_queried)
+    # print(shards_queried)
     data_entries = []
     for shard_id, start_id, end_id in shards_queried:
         request_id = random.randint(100000, 999999)
@@ -376,7 +383,7 @@ def read():
 
 @app.route('/write', methods=['POST'])
 def write():
-    global database_config, shard_locks
+    global shard_locks
     data_entries = request.json.get('data', [])
 
     shard_queries = {}
@@ -394,8 +401,8 @@ def write():
         shard_lock = shard_locks.setdefault(shard_id, threading.Lock())
         shard_lock.acquire()
         try:
-            server_list_ = shard_hash_maps[id_].getServers() shard_hash_maps[shard_id].getServers()
-            curr_idx = shard_information[shard_id]['valid_idx']
+            server_list = shard_hash_maps[shard_id].getServers()
+            curr_idx = int(shard_information[shard_id]['valid_idx'])
             for serverName in server_list :
                 load_balancer_url = f"{get_server_url(serverName)}write"
                 payload = {
@@ -409,9 +416,9 @@ def write():
                 else:
                     print(response.text)
                     print("Failed to get response from load balancer. Status code:", response.status_code)
+                    return jsonify({'message': f"Failed to get response from load balancer. Status code:{response.status_code}", 'status': 'Unsuccessful'}), 400
         finally:
             shard_lock.release()
-
     return jsonify({'message': f"{entries_added} Data entries added", 'status': 'success'}), 200
 
 
@@ -484,7 +491,6 @@ def not_found_error(error):
     return jsonify({'error': 'Not found'}), 404
 
 if __name__ =='__main__':
-    # start_health_check_thread()
     print(os.popen(f"sudo docker rm my_network").read())
     print(os.popen(f"sudo docker network create my_network").read())
     app.run(host="0.0.0.0", port=5000, threaded=True)
