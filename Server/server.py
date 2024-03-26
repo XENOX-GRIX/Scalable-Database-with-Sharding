@@ -300,10 +300,28 @@ def update():
     
     try:
         with lock:
-            message = {"mssage" : "To be implemented"}
+            payload = request.get_json()
+            shard = payload.get('shard')
+            Stud_id = int(payload.get('Stud_id'))
+            entry = payload.get('data')
+
+            table = ClassFactory(shard)
+            query = db.session.query(table).filter_by(Stud_id=entry['Stud_id']).all()
+            if len(query) != 0:
+                message["message"] = "Nothing to update. Given ID does not exist."
+            else:
+                table(Stud_id=entry['Stud_id'], Stud_name=entry['Stud_name'], Stud_marks=entry['Stud_marks'])
+                db.session.query(table).filter_by(Stud_id=entry['Stud_id']).update({
+                    Stud_name=entry['Stud_name'],
+                    Stud_marks=entry['Stud_marks']
+                })
+                db.session.commit()
+                message["message"] = "Data entry for Stud_id:" + str(Stud_id) + " updated"
+
+            message["status"] = "success"
             statusCode = 200
     except Exception as e:
-        message = {"message": "Error: " + str(e), 
+        message = {"message": "Error: " + str(e),
                    "status": "Unsuccessfull"}
         statusCode = 400
     return message, statusCode
