@@ -103,7 +103,7 @@ def health_check():
                 try : 
                     shards_queried_ = {}
                     for i in shard_ids : 
-                        shard_queried[i] = 0
+                        shard_queried_[i] = 0
                     servers_shards  = {}
                     for id_ in shard_ids :
                         server_list_ = set(shard_hash_maps[id_].getServers())
@@ -116,9 +116,9 @@ def health_check():
                     for k, v in servers_shards.items() :
                         val = []
                         for i in v : 
-                            if shard_queried[i] == 0 : 
+                            if shard_queried_[i] == 0 : 
                                 val.append(i)
-                                shard_queried[i] = 1
+                                shard_queried_[i] = 1
                         if len(val) == 0 : 
                             continue
                         response = requests.post(f"{get_server_url(k)}copy", json={
@@ -136,7 +136,8 @@ def health_check():
                                 response = requests.post(load_balancer_url, json=payload)
                             finally:
                                 shard_lock.release()
-
+                except Exception as e : 
+                    print(e)
                 print(f"New Server created : {name}")
             time.sleep(5)
     except Exception as e:
