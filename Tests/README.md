@@ -26,7 +26,7 @@ The Python code for tasks A-1 to A-3 simulates the read and write performance of
 3. **Run the simulation script with Python.**
 
     ```bash
-    python distributed_database_simulation.py
+    python3 analysis.py
     ```
 
    This command will execute the simulations for tasks A-1 to A-3 sequentially and display the results for each task, including the write and read times for 10,000 operations under different server and shard configurations.
