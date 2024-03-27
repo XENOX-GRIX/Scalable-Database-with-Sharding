@@ -129,7 +129,7 @@ def health_check():
                             'shards': val
                         })
                         for shard_id in val:
-                            entry = resonse.json().get(shard_id, [])
+                            entry = response.json().get(shard_id, [])
                             shard_lock = shard_locks.setdefault(shard_id, threading.Lock())
                             shard_lock.acquire()
                             try:
@@ -169,7 +169,7 @@ current_configuration = {
 
 @app.route('/init', methods=['POST'])
 def initialize_database():
-    global init_called
+    global init_called, server schema
     message = "Configured Database"
     status = "Successful"
     if init_called == 1 :
@@ -259,6 +259,7 @@ def get_status():
 @app.route('/add', methods=['POST'])
 def add_servers():
     try : 
+        global server_schema
         data = request.json
         N = data.get('n')
         shards = data.get('new_shards')
@@ -300,6 +301,7 @@ def add_servers():
                         print(response.text)
                         break
                 except Exception as e:
+                    print(e)
                     time.sleep(30)
                     continue
 
