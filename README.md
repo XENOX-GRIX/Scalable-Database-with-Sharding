@@ -64,11 +64,11 @@ Performance analysis involved measuring read and write speeds under various conf
 </p>
 
 <p align="center">
-      <img src="Tests/test2.png" width="90%"/><br><strong>Test-2 results for 10000 reads and 10000 writes</strong>
+      <img src="Tests/test2.png" width="90%"/><br><strong>Test-2 results for 10000 reads and 10000 writes (Write Speed-down = 2.14267270488, Read Speed-up = 1.08771929825)</strong>
 </p>
 
 <p align="center">
-      <img src="Tests/test3.png" width="90%"/><br><strong>Test-3 results for 10000 reads and 10000 writes</strong>
+      <img src="Tests/test3.png" width="90%"/><br><strong>Test-3 results for 10000 reads and 10000 writes (Write Speed-down = , Read Speed-up = )</strong>
 </p>
 
 
