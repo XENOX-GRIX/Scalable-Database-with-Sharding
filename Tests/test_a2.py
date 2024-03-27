@@ -33,16 +33,75 @@ def test_a1():
     load_balancer_url_read = "http://127.0.0.1:5000/read"  
 
     init_payload = {
-        "N":3,
-        "schema":{"columns":["Stud_id","Stud_name","Stud_marks"],
-                    "dtypes":["Number","String","String"]},
-        "shards":[{"Stud_id_low":0, "Shard_id": "sh1", "Shard_size":4096},
-                    {"Stud_id_low":4096, "Shard_id": "sh2", "Shard_size":4096},
-                    {"Stud_id_low":8192, "Shard_id": "sh3", "Shard_size":4096}],
-        "servers":{"server1":["sh1","sh2"],
-                    "server2":["sh2","sh3"],
-                    "server3":["sh1","sh3"]}
+        "N":7,
+        "schema":{
+            "columns":[
+                "Stud_id",
+                "Stud_name",
+                "Stud_marks"
+            ],
+            "dtypes":[
+                "Number",
+                "String",
+                "String"
+            ]
+        },
+        "shards":[
+            {
+                "Stud_id_low":0,
+                "Shard_id":"sh1",
+                "Shard_size":4096
+            },
+            {
+                "Stud_id_low":4096,
+                "Shard_id":"sh2",
+                "Shard_size":4096
+            },
+            {
+                "Stud_id_low":8192,
+                "Shard_id":"sh3",
+                "Shard_size":4096
+            }
+        ],
+        "servers":{
+            "Server0":[
+                "sh1",
+                "sh2",
+                "sh3"
+            ],
+            "Server1":[
+                "sh1",
+                "sh2",
+                "sh3"
+            ],
+            "Server2":[
+                "sh1",
+                "sh2",
+                "sh3"
+            ],
+            "Server3":[
+                "sh1",
+                "sh2",
+                "sh3"
+            ],
+            "Server4":[
+                "sh1",
+                "sh2",
+                "sh3"
+            ],
+            "Server5":[
+                "sh1",
+                "sh2",
+                "sh3"
+            ],
+            "Server6":[
+                "sh1",
+                "sh2",
+                "sh3"
+            ]
+        }
     }
+
     while True : 
         try : 
             response = requests.post(load_balancer_url_init, json=init_payload)
