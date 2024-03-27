@@ -169,7 +169,7 @@ current_configuration = {
 
 @app.route('/init', methods=['POST'])
 def initialize_database():
-    global init_called, server schema
+    global init_called, server_schema
     message = "Configured Database"
     status = "Successful"
     if init_called == 1 :
