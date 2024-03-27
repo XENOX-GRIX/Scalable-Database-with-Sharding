@@ -18,44 +18,16 @@ This project demonstrates a scalable, sharded database system intended for educa
 1. **Install Docker**  
    - Visit [Docker's official installation guide](https://docs.docker.com/engine/install/ubuntu/) and follow the instructions to install Docker on Ubuntu.
 
-2. **Install MySQL** (Optional)  
-   - This step is optional and needed if you intend to run MySQL directly on your host for development purposes. Follow the instructions in [MySQL's official documentation](https://dev.mysql.com/doc/mysql-installation-excerpt/8.0/en/).
-
-3. **Prepare the Python Environment**  
-   - Set up a Python virtual environment and install dependencies:
-     ```sh
-     python3 -m venv venv
-     source venv/bin/activate
-     pip install --upgrade pip
-     pip install -r requirements.txt
-     ```
-
 ### Running the Application
 
-1. **Build Docker Containers**  
-   - The system components (servers, load balancer) are containerized. Use Docker Compose to build them:
-     ```sh
-     docker-compose build
-     ```
-
-2. **Initialize the Database**  
-   - A script is provided to initialize the database schema before running the application:
-     ```sh
-     docker-compose run db-init
-     ```
-
-3. **Start the System**  
-   - Launch the system components including the database, servers, and load balancer:
-     ```sh
-     docker-compose up
-     ```
-
-4. **Interact with the System**  
-   - The system provides a series of endpoints for interaction. Example scripts are provided for common operations, such as initializing the load balancer:
-     ```sh
-     python scripts/init_load_balancer.py
-     ```
-
+1. **Build Docker Containers**
+   ```
+   -# Without using docker-compose
+   make run
+   
+   # With using docker-compose
+   make run_compose
+   ```
 ## Architecture
 
 This scalable sharded database system is designed around the principles of distributed databases, specifically focusing on sharding and load balancing. 
@@ -84,6 +56,15 @@ Performance analysis involved measuring read and write speeds under various conf
 - **Increased Shard Replicas**: Showed improved read speeds due to parallelism.
 - **Increased Servers and Shards**: Highlighted scalability and its impact on performance.
 - **Endpoint Correctness**: Validated through simulated server failures and automatic recovery.
+
+### Tests
+
+<p align="center">
+      <img src="Tests/test1.png" width="90%"/><br><strong>Test-1 results for 10000 reads and 10000 writes</strong>
+</p>
+
+
+
 
 ## Endpoints test results
 
@@ -124,6 +105,53 @@ Performance analysis involved measuring read and write speeds under various conf
       <img src="Tests/Server/server_del.png" width="90%"/><br><strong>Working of Server endpoint /del</strong>
 </p>
 
+### Load Balancer
+
+#### Endpoint (/init, method=POST)
+<p align="center">
+      <img src="Tests/lb_init.png" width="90%"/><br><strong>Working of Load-balancer endpoint /init</strong>
+</p>
+
+#### Endpoint (/status, method=GET)
+<p align="center">
+      <img src="Tests/lb_status.png" width="90%"/><br><strong>Working of Load-balancer endpoint /status</strong>
+</p>
+
+#### Endpoint (/add, method=POST)
+<p align="center">
+      <img src="Tests/lb_add.png" width="90%"/><br><strong>Working of Load-balancer endpoint /add</strong>
+</p>
+
+#### Endpoint (/rm, method=DELETE)
+<p align="center">
+      <img src="Tests/lb_rm.png" width="90%"/><br><strong>Working of Load-balancer endpoint /rm</strong>
+</p>
+
+#### Endpoint (/read, method=POST)
+<p align="center">
+      <img src="Tests/lb_read.png" width="90%"/><br><strong>Working of Load-balancer endpoint /read</strong>
+</p>
+
+#### Endpoint (/write, method=POST)
+<p align="center">
+      <img src="Tests/lb_write.png" width="90%"/><br><strong>Working of Load-balancer endpoint /write</strong>
+</p>
+
+#### Endpoint (/update, method=PUT)
+<p align="center">
+      <img src="Tests/lb_update.png" width="90%"/><br><strong>Working of Load-balancer endpoint /update</strong>
+</p>
+
+#### Endpoint (/del, method=DELETE)
+<p align="center">
+      <img src="Tests/lb_del.png" width="90%"/><br><strong>Working of Load-balancer endpoint /del</strong>
+</p>
+
+
+#### heart_beat functionality 
+<p align="center">
+      <img src="Tests/after_heartbeat_read.png" width="90%"/><br><strong>Heart-beat working</strong>
+</p>
 ## Appendix
 
 ### Docker and MySQL Setup
