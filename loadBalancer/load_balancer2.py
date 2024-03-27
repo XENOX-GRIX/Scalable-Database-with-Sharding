@@ -299,9 +299,9 @@ def add_servers():
                 if shard_id not in shard_hash_maps : 
                     shard_hash_maps[shard_id] = ConsistentHashmapImpl([], virtualServers, slotsInHashMap)
                 shard_hash_maps[shard_id].addServer(random_server_id, name)
-                if k not in server_shard_mapping : 
-                    server_shard_mapping[k] = []
-                server_shard_mapping[k].append(shard_id)
+                if name not in server_shard_mapping : 
+                    server_shard_mapping[name] = []
+                server_shard_mapping[name].append(shard_id)
 
         response_message = {
             "message" : message.strip(),
