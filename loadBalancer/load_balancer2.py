@@ -228,17 +228,7 @@ def initialize_database():
                     server_shard_mapping[name] = []
                 server_shard_mapping[name].append(shard_id)
 
-        # Sanity Check 
 
-        # global number_of_replicas
-        # for shards_ in shard_hash_maps.keys():
-        #     s1 = shard_hash_maps[shards_].getServers()
-        #     random_servers = max(0, number_of_replicas - len(s1))
-        #     if random_servers > 0 : 
-        #         random_server_list = random.sample(list(set(server_id_to_name) - set(s1)), random_servers)
-        #         for name in random_server_list : 
-        #             shard_hash_maps[shard_id].addServer(server_name_to_id[name], name)
-        #             server_shard_mapping[name].append(shards_)
 
     except Exception as e : 
         message = e
