@@ -63,6 +63,14 @@ Performance analysis involved measuring read and write speeds under various conf
       <img src="Tests/test1.png" width="90%"/><br><strong>Test-1 results for 10000 reads and 10000 writes</strong>
 </p>
 
+<p align="center">
+      <img src="Tests/test2.png" width="90%"/><br><strong>Test-2 results for 10000 reads and 10000 writes</strong>
+</p>
+
+<p align="center">
+      <img src="Tests/test3.png" width="90%"/><br><strong>Test-3 results for 10000 reads and 10000 writes</strong>
+</p>
+
 
 
 
