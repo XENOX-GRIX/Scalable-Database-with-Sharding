@@ -85,6 +85,45 @@ Performance analysis involved measuring read and write speeds under various conf
 - **Increased Servers and Shards**: Highlighted scalability and its impact on performance.
 - **Endpoint Correctness**: Validated through simulated server failures and automatic recovery.
 
+## Endpoints test results
+
+### Server
+
+#### Endpoint (/config, method=POST)
+<p align="center">
+      <img src="Tests/Server/server_config.png" width="90%"/><br><strong>Working of Server endpoint /config</strong>
+</p>
+
+#### Endpoint (/heartbeat, method=GET)
+<p align="center">
+      <img src="Tests/Server/server_heartbeat.png" width="90%"/><br><strong>Working of Server endpoint /heartbeat</strong>
+</p>
+
+#### Endpoint (/copy, method=GET)
+<p align="center">
+      <img src="Tests/Server/server_copy.png" width="90%"/><br><strong>Working of Server endpoint /copy</strong>
+</p>
+
+#### Endpoint (/read, method=POST)
+<p align="center">
+      <img src="Tests/Server/server_read.png" width="90%"/><br><strong>Working of Server endpoint /read</strong>
+</p>
+
+#### Endpoint (/write, method=POST)
+<p align="center">
+      <img src="Tests/Server/server_write.png" width="90%"/><br><strong>Working of Server endpoint /write</strong>
+</p>
+
+#### Endpoint (/update, method=PUT)
+<p align="center">
+      <img src="Tests/Server/server_update.png" width="90%"/><br><strong>Working of Server endpoint /update</strong>
+</p>
+
+#### Endpoint (/del, method=DELETE)
+<p align="center">
+      <img src="Tests/Server/server_del.png" width="90%"/><br><strong>Working of Server endpoint /del</strong>
+</p>
+
 ## Appendix
 
 ### Docker and MySQL Setup
