@@ -335,7 +335,7 @@ def remove():
                             "status" : "failure"}), 400
         
         for server in servers : 
-            if server not in server_name_to_id : 
+            if server not in server_name_to_id.keys() : 
                 return jsonify({"message" : f"Server Name : {server} not found",
                             "status" : "failure"}), 400
         
@@ -360,7 +360,6 @@ def remove():
         print(e)
         return jsonify({'message': 'Removal Unsuccessful'}), 400
         
-
 
 
 @app.route('/read', methods=['POST'])
