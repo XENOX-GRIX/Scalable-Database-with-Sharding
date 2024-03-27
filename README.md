@@ -22,7 +22,7 @@ This project demonstrates a scalable, sharded database system intended for educa
 
 1. **Build Docker Containers**
    ```
-   -# Without using docker-compose
+   # Without using docker-compose
    make run
    
    # With using docker-compose
@@ -114,7 +114,7 @@ Performance analysis involved measuring read and write speeds under various conf
 
 #### Endpoint (/status, method=GET)
 <p align="center">
-      <img src="Tests/lb_status.png" width="90%"/><br><strong>Working of Load-balancer endpoint /status</strong>
+      <img src="Tests/lb_ststus.png" width="90%"/><br><strong>Working of Load-balancer endpoint /status</strong>
 </p>
 
 #### Endpoint (/add, method=POST)
@@ -149,6 +149,9 @@ Performance analysis involved measuring read and write speeds under various conf
 
 
 #### heart_beat functionality 
+<p align="center">
+      <img src="Tests/lb_heartbeat.png" width="90%"/><br><strong>Heart-beat working</strong>
+</p>
 <p align="center">
       <img src="Tests/after_heartbeat_read.png" width="90%"/><br><strong>Heart-beat working</strong>
 </p>
