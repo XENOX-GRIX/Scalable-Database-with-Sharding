@@ -68,7 +68,7 @@ Performance analysis involved measuring read and write speeds under various conf
 </p>
 
 <p align="center">
-      <img src="Tests/test3.png" width="90%"/><br><strong>Test-3 results for 10000 reads and 10000 writes (Write Speed-down = , Read Speed-up = )</strong>
+      <img src="Tests/test3.png" width="90%"/><br><strong>Test-3 results for 10000 reads and 10000 writes (Write Speed-down = 2.5979025146, Read Speed-up = 1.0350877193)</strong>
 </p>
 
 
