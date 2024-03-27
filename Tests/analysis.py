@@ -72,9 +72,5 @@ class DistributedDatabase:
 database = DistributedDatabase()
 database.display_configuration()
 
-# Simulating server failure and load balancer response
-print("\n--- Removing Server0 ---")
-database.remove_server("Server0")
-database.spawn_new_server()
-database.display_configuration()
+
 
