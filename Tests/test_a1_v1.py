@@ -9,8 +9,8 @@ def measure_write_speed(url, payload):
     response = requests.post(url, json=payload)
     end_time = time.time()
     write_time = end_time - start_time
-    print(response.status_code)
-    print(response.text)
+    # print(response.status_code)
+    # print(response.text)
     return write_time
 
 def generate_random_string(length):
@@ -22,7 +22,7 @@ def measure_read_speed(url, payload):
     response = requests.post(url, json=payload)
     end_time = time.time()
     read_time = end_time - start_time
-    print(response.status_code)
+    # print(response.status_code)
     # print(response.text)
     return read_time
 
