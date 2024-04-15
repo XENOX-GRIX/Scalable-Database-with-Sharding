@@ -2,6 +2,56 @@ import time
 import requests
 import random
 import string
+import asyncio
+import aiohttp
+
+def get_write_tasks(session):
+    tasks = []
+    load_balancer_url_write = "http://127.0.0.1:5000/write"
+    for i in range(1, 10001):
+        payload = {
+            "data": [
+                {
+                    "Stud_id": i,
+                    "Stud_name": generate_random_string(5),
+                    "Stud_marks": random.randint(1, 100)
+                }
+            ]
+        }
+
+        tasks.append(asyncio.create_task(session.post(load_balancer_url_write, json=payload)))
+
+    return tasks
+
+def get_read_tasks(session):
+    tasks = []
+    load_balancer_url_read = "http://127.0.0.1:5000/read"
+    for i in range(1, 10001):
+        payload = {
+            "Stud_id": {"low": i, "high": i}
+        }
+
+        tasks.append(asyncio.create_task(session.post(load_balancer_url_read, json=payload)))
+
+    return tasks
+
+async def measure_write_speed_async():
+    async with aiohttp.ClientSession() as session:
+        write_tasks = get_write_tasks(session)
+        responses = await asyncio.gather(*write_tasks)
+
+        for i, response in enumerate(responses):
+            if response.status != 200:
+                print(f"Error in write request {i}")
+
+async def measure_read_speed_async():
+    async with aiohttp.ClientSession() as session:
+        read_tasks = get_read_tasks(session)
+        responses = await asyncio.gather(*read_tasks)
+
+        for i, response in enumerate(responses):
+            if response.status != 200:
+                print(f"Error in read request {i}")
 
 # Function to measure the time taken for 10000 writes
 def measure_write_speed(url, payload):
@@ -81,12 +131,18 @@ def test_a1():
         "Stud_id": {"low": 0, "high": 10000}
     }
 
-    # Measure write speed
-    write_time = measure_write_speed(load_balancer_url_write, payload_write)
+    # Measure write speed by making async requests
+    start_time = time.time()
+    asyncio.run(measure_write_speed_async())
+    end_time = time.time()
+    write_time = end_time - start_time
     print(f"Time taken for 10,000 writes: {write_time} seconds")
 
-    # Measure read speed
-    read_time = measure_read_speed(load_balancer_url_read, payload_read)
+    # Measure read speed by making async requests
+    start_time = time.time()
+    asyncio.run(measure_read_speed_async())
+    end_time = time.time()
+    read_time = end_time - start_time
     print(f"Time taken for 10,000 reads: {read_time} seconds")
 
 # Run the test

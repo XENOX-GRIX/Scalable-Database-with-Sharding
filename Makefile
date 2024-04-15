@@ -18,3 +18,11 @@ run: check_network
 run_compose: check_network
 	sudo docker-compose build
 	sudo docker-compose up load_balancer
+	
+# Delete all
+run_delete:
+	sudo docker stop $$(sudo docker ps -a -q)
+	sudo docker rm $$(sudo docker ps -a -q)
+	sudo docker rmi $$(sudo docker images -q)
+	sudo docker network rm my_network
+	sudo docker volume rm persistentStorage
